@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Planet Tycoon</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <div id="blocker">
+        <div id="instructions">PAUSED</div>
+        <div id="instructions-sub">
+            클릭하여 게임 재개<br><br>
+            (마우스: 시점 / WASD: 이동 / ESC: 메뉴)
+        </div>
+    </div>
+
+    <div id="ui-layer">
+        <div id="ui-top-left">
+            <h1>🪐 플래닛 타이쿤</h1>
+        </div>
+
+        <div id="time-container">
+            <div id="day-display">Day 1</div>
+            <div id="time-bar-bg">
+                <div id="time-bar-fill"></div>
+            </div>
+        </div>
+
+        <div id="message"></div>
+        <div id="action-progress-container">
+            <div id="action-progress-fill"></div>
+        </div>
+
+        <div id="controls-left"></div>
+
+        <div id="side-menu">
+            <div class="menu-btn" id="btn-menu-build"><span class="menu-key">Q</span>🔨</div>
+            <div class="menu-btn" id="btn-menu-inv"><span class="menu-key">E</span>🎒</div>
+        </div>
+
+        <div id="build-window">
+            <div class="category-tabs">
+                <button class="cat-btn active" onclick="selectCategory('housing')">주거</button>
+                <button class="cat-btn" onclick="selectCategory('farming')">농사</button>
+                <button class="cat-btn" onclick="selectCategory('deco')">장식</button>
+            </div>
+            <div class="build-list" id="build-list-container"></div>
+        </div>
+
+        <div id="inventory-window">
+            <div>
+                <div class="inv-section-title">가방</div>
+                <div class="inv-grid" id="inv-bag-grid"></div>
+            </div>
+            <div>
+                <div class="inv-section-title">핫바</div>
+                <div class="inv-grid" id="inv-hotbar-grid"></div>
+            </div>
+        </div>
+
+        <div id="main-hud">
+            <div id="status-bars">
+                <div class="stat-track">
+                    <div id="hp-fill" class="stat-fill" style="width: 100%;"></div>
+                </div>
+                <div class="stat-track">
+                    <div id="hunger-fill" class="stat-fill" style="width: 100%;"></div>
+                </div>
+            </div>
+            <div id="hotbar"></div>
+        </div>
+    </div>
+
+    <div id="cursor-item"></div>
+
+    <div id="mobile-actions">
+        <button id="btn-main-action" class="action-btn">🪓</button>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
