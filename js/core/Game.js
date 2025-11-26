@@ -107,6 +107,9 @@ function setupInputHandlers() {
         if (!gameState.isPaused && document.pointerLockElement === document.body) {
             const rotSpeed = -0.002;
             cameraState.forward.applyAxisAngle(playerState.up, e.movementX * rotSpeed).normalize();
+
+            cameraState.pitch -= e.movementY * rotSpeed;
+            cameraState.pitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraState.pitch));
         }
     });
 

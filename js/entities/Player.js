@@ -57,9 +57,10 @@ export function updatePlayerMovement() {
     }
     player.position.copy(playerState.position);
     player.up.copy(playerState.up);
+    const dist = 43; // Approx sqrt(35^2 + 25^2)
     const camPos = playerState.position.clone()
-        .add(playerState.up.clone().multiplyScalar(gameState.camHeight))
-        .add(cameraState.forward.clone().multiplyScalar(-gameState.camDist));
+        .add(cameraState.forward.clone().multiplyScalar(-dist * Math.cos(cameraState.pitch)))
+        .add(playerState.up.clone().multiplyScalar(dist * Math.sin(cameraState.pitch)));
     camera.position.lerp(camPos, 0.1);
     camera.up.copy(playerState.up);
     camera.lookAt(playerState.position);

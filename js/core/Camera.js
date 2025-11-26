@@ -3,7 +3,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 export let camera;
 export const cameraState = {
     forward: new THREE.Vector3(0, 0, 1),
-    pitch: 0.5
+    pitch: 0.95
 };
 
 export function initCamera() {
