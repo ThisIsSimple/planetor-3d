@@ -142,11 +142,11 @@ export function showMessage(text, color) {
 export function updateControlsGuide() {
     const el = document.getElementById('controls-left');
     if (gameState.mode === 'build') {
-        el.innerHTML = `<div><span class="key">Q</span> 종료</div><div><span class="key">Tab</span> 카테고리</div><div><span class="key">휠</span> 건물선택</div><div><span class="key">SPC</span> 건설</div>`;
+        el.innerHTML = `<div><span class="key">Q</span> 종료</div><div><span class="key">Tab</span> 카테고리</div><div><span class="key">휠</span> 건물선택</div><div><span class="key">F</span> 건설</div>`;
     } else if (gameState.mode === 'inventory') {
         el.innerHTML = `<div><span class="key">E</span> / <span class="key">ESC</span> 닫기</div><div><span class="key">클릭</span> 이동</div>`;
     } else {
-        el.innerHTML = `<div><span class="key">W</span><span class="key">S</span> 이동</div><div><span class="key">A</span><span class="key">D</span> 좌우이동</div><div><span class="key">마우스</span> 시점</div><div><span class="key">SPC(꾹)</span> 액션</div>`;
+        el.innerHTML = `<div><span class="key">W</span><span class="key">S</span> 이동</div><div><span class="key">A</span><span class="key">D</span> 좌우이동</div><div><span class="key">마우스</span> 시점</div>`;
     }
 }
 

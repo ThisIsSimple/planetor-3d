@@ -88,7 +88,7 @@ export function removePreviewMesh() {
 
 export function updatePreviewTransform() {
     if (gameState.mode !== 'build' || !gameState.previewMesh) return;
-    const dist = 8;
+    const dist = 4; // 플레이어와 더 가까운 위치에 건설
     const spawnPos = playerState.position.clone()
         .add(cameraState.forward.clone().multiplyScalar(dist))
         .normalize().multiplyScalar(gameState.planet.radius);
