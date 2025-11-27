@@ -5,6 +5,7 @@ import { getRandomPositionOnSphere } from '../utils/MathUtils.js';
 import { ITEM_DB } from '../data/Items.js';
 import { addItem } from '../systems/Inventory.js';
 import { showMessage } from '../ui/UIManager.js';
+import { HealthBar } from '../ui/WorldUI.js';
 
 export let trees = [], particles = [], drops = [];
 
@@ -35,33 +36,15 @@ function createTreeMesh(pos) {
     l2.position.z = 4.5;
     tree.add(l2);
 
-    // Health Bar (Billboard)
-    const barGroup = new THREE.Group();
-    // Tree is rotated so local Z is "up" relative to the planet surface, but the tree group itself is oriented to the planet surface.
-    // The trunk is at z=1.25, leaves at z=3.0 and z=4.5.
-    // So "above" the tree is further along the Z axis.
-    barGroup.position.set(0, 0, 7); // Positioned above the tree (local Z axis)
-
-    const bgGeo = new THREE.PlaneGeometry(2, 0.3);
-    const bgMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
-    const bg = new THREE.Mesh(bgGeo, bgMat);
-
-    const fillGeo = new THREE.PlaneGeometry(1.9, 0.2);
-    const fillMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
-    const fill = new THREE.Mesh(fillGeo, fillMat);
-    fill.position.z = 0.01; // Slightly in front of bg
-
-    barGroup.add(bg);
-    barGroup.add(fill);
-    barGroup.visible = false; // Hidden by default
-
-    tree.add(barGroup);
+    // Health Bar
+    // Positioned above the tree (local Z axis)
+    // We pass the tree object and the scalar offset (7)
+    const healthBar = new HealthBar(tree, 7);
 
     tree.userData = {
         health: 100,
         maxHealth: 100,
-        healthBar: barGroup,
-        healthFill: fill
+        healthBar: healthBar
     };
 
     scene.add(tree);
@@ -74,22 +57,11 @@ export function updateEnvironment(playerPos, camera) {
 
     // Update Tree Health Bars
     trees.forEach(tree => {
-        if (tree.userData.health < tree.userData.maxHealth) {
-            const dist = tree.position.distanceTo(playerPos);
-            if (dist < 15) {
-                tree.userData.healthBar.visible = true;
-                // Look at camera
-                tree.userData.healthBar.lookAt(camera.position);
-
-                // Update fill scale based on health
-                const pct = Math.max(0, tree.userData.health / tree.userData.maxHealth);
-                tree.userData.healthFill.scale.x = pct;
-                // Center scaling is fine for now
-            } else {
-                tree.userData.healthBar.visible = false;
-            }
+        const dist = tree.position.distanceTo(playerPos);
+        if (dist < 15) {
+            tree.userData.healthBar.update(camera, tree.userData.health, tree.userData.maxHealth);
         } else {
-            tree.userData.healthBar.visible = false;
+            tree.userData.healthBar.setVisible(false);
         }
     });
 }
