@@ -209,7 +209,7 @@ function updatePlanetInfoUI() {
     if (gameState.planet) {
         document.getElementById('planet-name').innerText = `🪐 ${gameState.planet.name}`;
         document.getElementById('planet-desc').innerText = gameState.planet.description;
-        document.getElementById('day-display').innerText = `Day ${gameState.planet.getLocalDay()}`;
+        document.getElementById('day-display').innerText = gameState.planet.getFormattedDate();
     }
 }
 
@@ -234,11 +234,11 @@ function animate() {
     // 현재 행성 시간 업데이트
     if (gameState.planet) {
         const dayChanged = gameState.planet.updateTime(delta);
-        const planetDay = gameState.planet.getLocalDay();
         
         if (dayChanged) {
-            document.getElementById('day-display').innerText = `Day ${planetDay}`;
-            showMessage(`${gameState.planet.name} Day ${planetDay} 시작`, "#ffd700");
+            const formattedDate = gameState.planet.getFormattedDate();
+            document.getElementById('day-display').innerText = formattedDate;
+            showMessage(`${gameState.planet.name} ${formattedDate}`, "#ffd700");
         }
         
         // 현재 행성의 시간 진행률로 UI 업데이트
