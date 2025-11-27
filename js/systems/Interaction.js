@@ -1,6 +1,6 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
 import { gameState } from '../core/GameState.js';
-import { player } from '../entities/Player.js';
+import { player, playerState } from '../entities/Player.js';
 import { trees, createExplosion, spawnDrop } from '../world/Environment.js';
 import { fields, placeBuilding } from './Building.js';
 import { ITEM_DB } from '../data/Items.js';
@@ -8,56 +8,90 @@ import { showMessage } from '../ui/UIManager.js';
 import { consumeItem } from './Inventory.js';
 import { scene } from '../world/Scene.js';
 
-export function handleInteraction(isHold) {
+export function handleInteraction() {
     if (gameState.mode === 'build') {
-        if (!isHold) placeBuilding();
+        placeBuilding();
         return;
     }
-    const heldItem = gameState.inventory[gameState.selectedSlot];
+    const slotItem = gameState.inventory[gameState.selectedSlot];
+    const heldItem = slotItem ? ITEM_DB[slotItem.id] : null;
+
     let target = null, minD = 5.0;
-    trees.forEach(t => {
-        const d = player.position.distanceTo(t.position);
-        if (d < minD) { minD = d; target = { type: 'tree', obj: t }; }
-    });
+
+    // Prioritize fields for interaction
     fields.forEach(f => {
         const d = player.position.distanceTo(f.mesh.position);
         if (d < 4.0 && d < minD) { minD = d; target = { type: 'field', obj: f }; }
     });
 
-    if (isHold) {
-        if (target && target.type === 'tree') {
-            if (heldItem && heldItem.id === 'axe') {
-                chopTree(target.obj);
-            } else {
-                showMessage("도끼가 필요합니다.", "#ff6b6b");
-            }
-            return;
-        }
-
-        if (target && target.type === 'field' && target.obj.crop) {
+    if (target && target.type === 'field') {
+        if (target.obj.crop) {
             const crop = target.obj.crop;
             if (crop.stage === 2) harvestCrop(target.obj);
             else removeCrop(target.obj);
-            return;
-        }
-        if (heldItem && ITEM_DB[heldItem.id].type === 'food') {
-            eatFood(gameState.selectedSlot);
-            return;
-        }
-    } else {
-        if (target && target.type === 'field' && !target.obj.crop) {
-            if (heldItem && ITEM_DB[heldItem.id].type === 'seed') {
+        } else {
+            if (heldItem && heldItem.type === 'seed') {
                 plantSeed(target.obj, heldItem.id);
                 consumeItem(heldItem.id, 1);
-            } else { showMessage("씨앗이 필요합니다.", "#ff6b6b"); }
-            return;
+            } else {
+                showMessage("씨앗이 필요합니다.", "#ff6b6b");
+            }
         }
+        return;
+    }
+
+    if (heldItem && heldItem.type === 'food') {
+        eatFood(gameState.selectedSlot);
+        return;
+    }
+}
+
+export function checkAttackHit() {
+    const slotItem = gameState.inventory[gameState.selectedSlot];
+    const heldItem = slotItem ? ITEM_DB[slotItem.id] : null;
+    if (!heldItem || heldItem.type !== 'weapon') return;
+
+    let target = null, minD = 5.0; // Increased Weapon range from 3.0
+    trees.forEach(t => {
+        const d = player.position.distanceTo(t.position);
+        if (d < minD) {
+            // Check angle (in front of player)
+            const toTree = t.position.clone().sub(player.position).normalize();
+            const dot = playerState.forward.dot(toTree);
+            if (dot > 0.2) { // Increased angle (roughly 150 degrees cone, dot > 0.2)
+                minD = d;
+                target = { type: 'tree', obj: t };
+            }
+        }
+    });
+
+    if (target && target.type === 'tree') {
+        if (heldItem.id === 'axe') {
+            damageTree(target.obj, heldItem.damage || 20);
+        }
+    }
+}
+
+function damageTree(treeObj, damage) {
+    if (!treeObj.userData.health) treeObj.userData.health = 100; // Fallback
+    treeObj.userData.health -= damage;
+
+    // Visual feedback
+    createExplosion(treeObj.position.clone().add(new THREE.Vector3(0, 2, 0)), 0x8b4513, 3);
+
+    // Shake effect (simple)
+    treeObj.rotation.z += 0.1;
+    setTimeout(() => { treeObj.rotation.z -= 0.1; }, 100);
+
+    if (treeObj.userData.health <= 0) {
+        chopTree(treeObj);
     }
 }
 
 function chopTree(treeObj) {
     const idx = trees.indexOf(treeObj);
     if (idx > -1) {
+        if (treeObj.userData.healthBar) treeObj.userData.healthBar.dispose();
         scene.remove(treeObj);
         trees.splice(idx, 1);
         createExplosion(treeObj.position, 0x8b4513, 8);
@@ -123,8 +157,12 @@ function removeCrop(fieldObj) {
 }
 
 function eatFood(slotIndex) {
-    const item = gameState.inventory[slotIndex];
-    const hungerRestore = ITEM_DB[item.id].hunger || 10;
+    const slotItem = gameState.inventory[slotIndex];
+    if (!slotItem) return;
+    const item = ITEM_DB[slotItem.id];
+    if (!item || item.type !== 'food') return;
+
+    const hungerRestore = item.hungerRestore || 10;
     if (gameState.hunger >= 100) { showMessage("배가 부릅니다.", "#ccc"); return; }
     gameState.hunger = Math.min(100, gameState.hunger + hungerRestore);
     consumeItem(item.id, 1);

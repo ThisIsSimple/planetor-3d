@@ -4,16 +4,14 @@ import { initInput, keys, on } from './Input.js';
 import { initCamera, camera, cameraState } from './Camera.js';
 import { initScene, scene, renderer, sunPivot } from '../world/Scene.js';
 import { createPlanet } from '../world/Planet.js';
-import { createPlayer, updatePlayerMovement, playerState, player } from '../entities/Player.js';
-import { spawnTree, updateParticles, updateDrops } from '../world/Environment.js';
+import { createPlayer, updatePlayerMovement, playerState, player, jump, attack, equipWeapon, unequipWeapon } from '../entities/Player.js';
+import { spawnTree, updateParticles, updateDrops, updateEnvironment } from '../world/Environment.js';
 import { initUI, showMessage, updateInventoryUI, updateControlsGuide, selectHotbarSlot } from '../ui/UIManager.js';
 import { addItem } from '../systems/Inventory.js';
-import { handleInteraction, updateCrops } from '../systems/Interaction.js';
+import { handleInteraction, updateCrops, checkAttackHit } from '../systems/Interaction.js';
 import { refreshBuildList, updatePreviewMesh, updatePreviewTransform, removePreviewMesh, selectCategory, currentBuildList } from '../systems/Building.js';
 
 let clock;
-const HOLD_THRESHOLD = 0.8;
-let spacePressTime = 0;
 
 export function init() {
     initScene();
@@ -39,7 +37,7 @@ export function init() {
     document.getElementById('btn-menu-build').onclick = () => toggleMode('build');
     document.getElementById('btn-menu-inv').onclick = () => toggleMode('inventory');
     document.getElementById('btn-main-action').onclick = () => {
-        handleInteraction(false);
+        handleInteraction();
     };
 
     animate();
@@ -56,6 +54,9 @@ function setupInputHandlers() {
                 }
             } else {
                 selectHotbarSlot(parseInt(k) - 1);
+                const item = gameState.inventory[parseInt(k) - 1];
+                if (item) equipWeapon(item.id);
+                else unequipWeapon();
             }
         }
         if (k === 'tab' && gameState.mode === 'build') {
@@ -66,6 +67,8 @@ function setupInputHandlers() {
         }
         if (k === 'q') toggleMode('build');
         if (k === 'e') toggleMode('inventory');
+        if (k === 'f') handleInteraction();
+        if (k === ' ') jump();
         if (k === 'escape') {
             if (gameState.mode === 'build') {
                 gameState.justExitedBuild = true;
@@ -100,6 +103,9 @@ function setupInputHandlers() {
             let next = gameState.selectedSlot + (e.deltaY > 0 ? 1 : -1);
             if (next > 8) next = 0; if (next < 0) next = 8;
             selectHotbarSlot(next);
+            const item = gameState.inventory[next];
+            if (item) equipWeapon(item.id);
+            else unequipWeapon();
         }
     });
 
@@ -110,6 +116,12 @@ function setupInputHandlers() {
 
             cameraState.pitch -= e.movementY * rotSpeed;
             cameraState.pitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraState.pitch));
+        }
+    });
+
+    on('mousedown', (e) => {
+        if (!gameState.isPaused && document.pointerLockElement === document.body) {
+            if (e.button === 0) attack(); // Left click
         }
     });
 
@@ -213,23 +225,22 @@ function animate() {
     document.getElementById('hunger-fill').style.width = `${gameState.hunger}%`;
 
     updatePlayerMovement();
+
+    // Check attack hit
+    if (playerState.isAttacking && !playerState.attackHitChecked && playerState.attackTimer > 0.5) {
+        checkAttackHit();
+        playerState.attackHitChecked = true;
+    }
+
     updatePreviewTransform();
-    updateParticles();
+
+    // Update Environment (Particles, Tree Health Bars)
+    updateEnvironment(player.position, camera);
+
     if (player) updateDrops(player);
     updateCrops(delta);
 
-    if (keys.space) {
-        spacePressTime += delta;
-        const progress = Math.min(100, (spacePressTime / HOLD_THRESHOLD) * 100);
-        document.getElementById('action-progress-container').style.display = 'block';
-        document.getElementById('action-progress-fill').style.width = `${progress}%`;
-        if (spacePressTime >= HOLD_THRESHOLD && !keys.spaceHandled) {
-            handleInteraction(true);
-            keys.spaceHandled = true;
-        }
-    } else {
-        spacePressTime = 0;
-        document.getElementById('action-progress-container').style.display = 'none';
-    }
+    document.getElementById('action-progress-container').style.display = 'none';
+
     renderer.render(scene, camera);
 }
