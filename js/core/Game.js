@@ -36,6 +36,9 @@ export function init() {
 
     initUI();
     updateControlsGuide();
+    
+    // 행성 정보 UI 초기화
+    updatePlanetInfoUI();
 
     addItem('axe', 1);
 
@@ -202,6 +205,14 @@ function toggleMode(modeName, force = false) {
     updateControlsGuide();
 }
 
+function updatePlanetInfoUI() {
+    if (gameState.planet) {
+        document.getElementById('planet-name').innerText = `🪐 ${gameState.planet.name}`;
+        document.getElementById('planet-desc').innerText = gameState.planet.description;
+        document.getElementById('day-display').innerText = `Day ${gameState.planet.getLocalDay()}`;
+    }
+}
+
 function animate() {
     requestAnimationFrame(animate);
 
@@ -211,17 +222,35 @@ function animate() {
     }
 
     const delta = clock.getDelta();
-    gameState.totalTime += delta;
-
-    const day = Math.floor(gameState.totalTime / gameState.dayDuration) + 1;
-    if (day !== gameState.currentDay) {
-        gameState.currentDay = day;
-        document.getElementById('day-display').innerText = `Day ${day}`;
-        showMessage(`Day ${day} 시작`, "#ffd700");
+    
+    // 우주력 업데이트
+    gameState.cosmicTime += delta;
+    gameState.totalTime = gameState.cosmicTime; // 기존 호환성 유지
+    const cosmicDay = Math.floor(gameState.cosmicTime / gameState.cosmicDayDuration) + 1;
+    if (cosmicDay !== gameState.cosmicDay) {
+        gameState.cosmicDay = cosmicDay;
     }
-    const dayProgress = (gameState.totalTime % gameState.dayDuration) / gameState.dayDuration;
-    document.getElementById('time-bar-fill').style.width = `${dayProgress * 100}%`;
-    sunPivot.rotation.z = (gameState.totalTime / gameState.dayDuration) * Math.PI * 2;
+
+    // 현재 행성 시간 업데이트
+    if (gameState.planet) {
+        const dayChanged = gameState.planet.updateTime(delta);
+        const planetDay = gameState.planet.getLocalDay();
+        
+        if (dayChanged) {
+            document.getElementById('day-display').innerText = `Day ${planetDay}`;
+            showMessage(`${gameState.planet.name} Day ${planetDay} 시작`, "#ffd700");
+        }
+        
+        // 현재 행성의 시간 진행률로 UI 업데이트
+        const dayProgress = gameState.planet.getDayProgress();
+        document.getElementById('time-bar-fill').style.width = `${dayProgress * 100}%`;
+        
+        // 태양 회전도 현재 행성 기준으로
+        sunPivot.rotation.z = (gameState.planet.localTime / gameState.planet.dayDuration) * Math.PI * 2;
+    }
+
+    // 기존 currentDay 호환성 유지
+    gameState.currentDay = gameState.planet ? gameState.planet.getLocalDay() : 1;
 
     const hungerLoss = (100 / (gameState.dayDuration * 3)) * delta;
     gameState.hunger = Math.max(0, gameState.hunger - hungerLoss);
