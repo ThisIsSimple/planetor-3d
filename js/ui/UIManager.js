@@ -2,6 +2,7 @@ import { gameState } from '../core/GameState.js';
 import { ITEM_DB } from '../data/Items.js';
 import { BUILDING_DB } from '../data/Buildings.js';
 import { refreshBuildList, updatePreviewMesh, removePreviewMesh, selectCategory } from '../systems/Building.js';
+import { on } from '../core/Input.js';
 
 export function initUI() {
     const hotbarEl = document.getElementById('hotbar');
@@ -18,6 +19,14 @@ export function initUI() {
 
     // Expose functions to window for HTML onclick handlers
     window.selectCategory = selectCategory;
+
+    on('mousemove', (e) => {
+        const el = document.getElementById('cursor-item');
+        if (el && gameState.cursorItem) {
+            el.style.left = `${e.clientX}px`;
+            el.style.top = `${e.clientY}px`;
+        }
+    });
 }
 
 export function updateInventoryUI() {
