@@ -1,9 +1,9 @@
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
 import { scene } from '../world/Scene.js';
 import { gameState } from '../core/GameState.js';
 import { camera, cameraState } from '../core/Camera.js';
 import { keys } from '../core/Input.js';
-import { trees } from '../world/Environment.js';
+import { trees, crashedShip } from '../world/Environment.js';
 import { buildings } from '../systems/Building.js';
 import { ITEM_DB } from '../data/Items.js';
 
@@ -199,5 +199,57 @@ function checkCollision(nextPos) {
     const pRad = 1.0;
     for (let t of trees) { if (nextPos.distanceTo(t.position) < pRad + 1.2) return true; }
     for (let b of buildings) { if (nextPos.distanceTo(b.position) < pRad + (b.userData.radius || 3.5)) return true; }
+    // 고장난 우주선 충돌 판정 (캡슐 형태)
+    if (crashedShip && checkCapsuleCollision(nextPos, crashedShip, pRad)) return true;
     return false;
+}
+
+/**
+ * 캡슐 형태의 충돌 판정
+ * @param {THREE.Vector3} point - 체크할 위치
+ * @param {THREE.Group} ship - 우주선 그룹
+ * @param {number} pointRadius - 점의 반경
+ * @returns {boolean} - 충돌 여부
+ */
+function checkCapsuleCollision(point, ship, pointRadius) {
+    // 캡슐 파라미터 (CapsuleGeometry(1.8, 4, 8, 16)와 동일)
+    const capsuleRadius = 1.8;
+    const capsuleHalfHeight = 2.0; // 캡슐 높이의 절반
+    
+    // 우주선 로컬 좌표에서 캡슐의 두 끝점 (Y축 방향)
+    const localTop = new THREE.Vector3(0, capsuleHalfHeight, 2); // z=2는 body.position.z
+    const localBottom = new THREE.Vector3(0, -capsuleHalfHeight, 2);
+    
+    // 월드 좌표로 변환
+    const worldTop = localTop.clone().applyMatrix4(ship.matrixWorld);
+    const worldBottom = localBottom.clone().applyMatrix4(ship.matrixWorld);
+    
+    // 점에서 선분까지의 최단 거리 계산
+    const dist = distanceToLineSegment(point, worldTop, worldBottom);
+    
+    return dist < (capsuleRadius + pointRadius);
+}
+
+/**
+ * 점에서 선분까지의 최단 거리 계산
+ */
+function distanceToLineSegment(point, lineStart, lineEnd) {
+    const line = lineEnd.clone().sub(lineStart);
+    const len = line.length();
+    line.normalize();
+    
+    const toPoint = point.clone().sub(lineStart);
+    const projection = toPoint.dot(line);
+    
+    if (projection <= 0) {
+        // 선분 시작점이 가장 가까움
+        return point.distanceTo(lineStart);
+    } else if (projection >= len) {
+        // 선분 끝점이 가장 가까움
+        return point.distanceTo(lineEnd);
+    } else {
+        // 선분 위의 점이 가장 가까움
+        const closestPoint = lineStart.clone().add(line.multiplyScalar(projection));
+        return point.distanceTo(closestPoint);
+    }
 }

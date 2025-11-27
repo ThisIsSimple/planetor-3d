@@ -1,4 +1,4 @@
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
 
 export let camera;
 export const cameraState = {

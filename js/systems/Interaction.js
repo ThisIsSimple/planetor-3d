@@ -1,4 +1,4 @@
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
 import { gameState } from '../core/GameState.js';
 import { player, playerState, getLookDirection } from '../entities/Player.js';
 import { trees, createExplosion, spawnDrop } from '../world/Environment.js';

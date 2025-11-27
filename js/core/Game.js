@@ -1,11 +1,11 @@
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
 import { gameState } from './GameState.js';
 import { initInput, keys, on, mouse } from './Input.js';
 import { initCamera, camera, cameraState } from './Camera.js';
 import { initScene, scene, renderer, sunPivot } from '../world/Scene.js';
 import { Planet } from '../world/Planet.js';
 import { createPlayer, updatePlayerMovement, playerState, player, jump, attack, equipWeapon, unequipWeapon } from '../entities/Player.js';
-import { spawnTree, updateParticles, updateDrops, updateEnvironment } from '../world/Environment.js';
+import { spawnTree, updateParticles, updateDrops, updateEnvironment, spawnCrashedShip } from '../world/Environment.js';
 import { initUI, showMessage, updateInventoryUI, updateControlsGuide, selectHotbarSlot } from '../ui/UIManager.js';
 import { addItem } from '../systems/Inventory.js';
 import { handleInteraction, updateCrops, checkAttackHit } from '../systems/Interaction.js';
@@ -24,6 +24,9 @@ export function init() {
         gravity: 0.02
     });
     createPlayer();
+    
+    // 플레이어 시작 위치 근처에 고장난 우주선 배치
+    spawnCrashedShip(playerState.position.clone());
 
     for (let i = 0; i < 40; i++) spawnTree();
 
