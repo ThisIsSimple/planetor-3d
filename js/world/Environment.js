@@ -10,7 +10,7 @@ import { HealthBar } from '../ui/WorldUI.js';
 export let trees = [], particles = [], drops = [];
 
 export function spawnTree() {
-    createTreeMesh(getRandomPositionOnSphere(gameState.planetRadius));
+    createTreeMesh(getRandomPositionOnSphere(gameState.planet.radius));
 }
 
 function createTreeMesh(pos) {

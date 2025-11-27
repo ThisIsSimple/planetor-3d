@@ -93,7 +93,7 @@ export function updatePlayerMovement() {
     if (keys.a) moveDir.sub(right);
 
     // Gravity
-    const gravity = -0.02;
+    const gravity = -gameState.planet.gravity;
     playerState.verticalVelocity += gravity;
     const verticalMove = playerState.up.clone().multiplyScalar(playerState.verticalVelocity);
 
@@ -109,8 +109,8 @@ export function updatePlayerMovement() {
 
         // Simple ground collision
         const distToCenter = nextPos.length();
-        if (distToCenter < gameState.planetRadius + 1.5) {
-            nextPos.normalize().multiplyScalar(gameState.planetRadius + 1.5);
+        if (distToCenter < gameState.planet.radius + 1.5) {
+            nextPos.normalize().multiplyScalar(gameState.planet.radius + 1.5);
             playerState.verticalVelocity = 0;
             playerState.isGrounded = true;
         } else {
@@ -127,8 +127,8 @@ export function updatePlayerMovement() {
         // Apply gravity even if not moving horizontally
         const nextPos = playerState.position.clone().add(verticalMove);
         const distToCenter = nextPos.length();
-        if (distToCenter < gameState.planetRadius + 1.5) {
-            nextPos.normalize().multiplyScalar(gameState.planetRadius + 1.5);
+        if (distToCenter < gameState.planet.radius + 1.5) {
+            nextPos.normalize().multiplyScalar(gameState.planet.radius + 1.5);
             playerState.verticalVelocity = 0;
             playerState.isGrounded = true;
         } else {

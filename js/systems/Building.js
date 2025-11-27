@@ -91,7 +91,7 @@ export function updatePreviewTransform() {
     const dist = 8;
     const spawnPos = playerState.position.clone()
         .add(cameraState.forward.clone().multiplyScalar(dist))
-        .normalize().multiplyScalar(gameState.planetRadius);
+        .normalize().multiplyScalar(gameState.planet.radius);
     gameState.previewMesh.position.copy(spawnPos);
     const up = spawnPos.clone().normalize();
     const forward = cameraState.forward.clone();

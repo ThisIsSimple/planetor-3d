@@ -3,7 +3,7 @@ import { gameState } from './GameState.js';
 import { initInput, keys, on } from './Input.js';
 import { initCamera, camera, cameraState } from './Camera.js';
 import { initScene, scene, renderer, sunPivot } from '../world/Scene.js';
-import { createPlanet } from '../world/Planet.js';
+import { Planet } from '../world/Planet.js';
 import { createPlayer, updatePlayerMovement, playerState, player, jump, attack, equipWeapon, unequipWeapon } from '../entities/Player.js';
 import { spawnTree, updateParticles, updateDrops, updateEnvironment } from '../world/Environment.js';
 import { initUI, showMessage, updateInventoryUI, updateControlsGuide, selectHotbarSlot } from '../ui/UIManager.js';
@@ -17,7 +17,12 @@ export function init() {
     initScene();
     clock = new THREE.Clock();
     initCamera();
-    createPlanet();
+    gameState.planet = new Planet({
+        name: "Terra Nova",
+        description: "A lush green planet suitable for life.",
+        size: 80,
+        gravity: 0.02
+    });
     createPlayer();
 
     for (let i = 0; i < 40; i++) spawnTree();
