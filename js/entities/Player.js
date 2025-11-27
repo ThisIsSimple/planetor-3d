@@ -81,6 +81,18 @@ export function attack() {
     playerState.attackHitChecked = false;
 }
 
+/**
+ * 캐릭터가 바라보는 방향 벡터 반환
+ * @returns {THREE.Vector3} - 정규화된 방향 벡터
+ */
+export function getLookDirection() {
+    if (!player) return new THREE.Vector3(0, 0, -1);
+    // 플레이어의 로컬 -Z 방향이 바라보는 방향
+    const lookDir = new THREE.Vector3(0, 0, -1);
+    lookDir.applyQuaternion(player.quaternion);
+    return lookDir.normalize();
+}
+
 export function updatePlayerMovement() {
     playerState.up.copy(playerState.position).normalize();
     const right = new THREE.Vector3().crossVectors(cameraState.forward, playerState.up).normalize();
@@ -137,33 +149,33 @@ export function updatePlayerMovement() {
         playerState.position.copy(nextPos);
     }
 
-    // Attack Animation - Diagonal Swing (Top-Right to Bottom-Left)
+    // Attack Animation - Vertical Swing (Top to Bottom, front-facing)
     if (playerState.isAttacking && playerState.hand) {
-        const speed = playerState.equippedWeapon.attackSpeed * 0.15; // Adjusted speed for "punchy" feel
+        const speed = playerState.equippedWeapon.attackSpeed * 0.15;
         playerState.attackTimer += speed;
 
         const t = playerState.attackTimer;
 
-        // Swing phase: 0.0 to 0.4 (Fast Swing), 0.4 to 1.0 (Return)
-        // Direction: Top-Right (RotX < 0, RotY < 0) -> Bottom-Left (RotX > 0, RotY > 0)
+        // Swing phase: 0.0 to 0.35 (Fast Swing Down), 0.35 to 1.0 (Return)
+        // Direction: Top (RotX = -1.5) -> Bottom (RotX = 0.8)
 
-        if (t < 0.4) {
-            const p = t / 0.4; // 0 to 1
-            // Start: RotX = -0.5, RotY = -0.5 (Up Right)
-            // End: RotX = 1.0, RotY = 0.5 (Down Left)
+        if (t < 0.35) {
+            const p = t / 0.35; // 0 to 1
             // Using easeOutQuad for punchy hit
             const easeP = 1 - (1 - p) * (1 - p);
 
-            playerState.hand.rotation.x = -0.8 + (1.8 * easeP);
-            playerState.hand.rotation.y = -0.5 + (1.0 * easeP);
-            playerState.hand.rotation.z = -0.5 + (1.0 * easeP);
+            // 위에서 아래로 휘두르기 (X축 회전만 사용)
+            playerState.hand.rotation.x = -1.5 + (2.3 * easeP);
+            playerState.hand.rotation.y = 0;
+            playerState.hand.rotation.z = 0;
         } else {
             // Return to neutral
-            const p = (t - 0.4) / 0.6; // 0 to 1
-            // Linear return
-            playerState.hand.rotation.x = 1.0 * (1 - p);
-            playerState.hand.rotation.y = 0.5 * (1 - p);
-            playerState.hand.rotation.z = 0.5 * (1 - p);
+            const p = (t - 0.35) / 0.65; // 0 to 1
+            const easeP = p * p; // easeInQuad for smooth return
+            
+            playerState.hand.rotation.x = 0.8 * (1 - easeP);
+            playerState.hand.rotation.y = 0;
+            playerState.hand.rotation.z = 0;
         }
 
         if (playerState.attackTimer >= 1) {

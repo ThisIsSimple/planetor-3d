@@ -1,6 +1,6 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
 import { gameState } from './GameState.js';
-import { initInput, keys, on } from './Input.js';
+import { initInput, keys, on, mouse } from './Input.js';
 import { initCamera, camera, cameraState } from './Camera.js';
 import { initScene, scene, renderer, sunPivot } from '../world/Scene.js';
 import { Planet } from '../world/Planet.js';
@@ -41,6 +41,7 @@ export function init() {
     updatePlanetInfoUI();
 
     addItem('axe', 1);
+    equipWeapon('axe'); // 시작 시 도끼 장착
 
     document.getElementById('btn-menu-build').onclick = () => toggleMode('build');
     document.getElementById('btn-menu-inv').onclick = () => toggleMode('inventory');
@@ -259,6 +260,11 @@ function animate() {
     document.getElementById('hunger-fill').style.width = `${gameState.hunger}%`;
 
     updatePlayerMovement();
+
+    // 마우스를 꾹 누르고 있으면 연속 공격
+    if (mouse.leftDown && !playerState.isAttacking && document.pointerLockElement === document.body) {
+        attack();
+    }
 
     // Check attack hit
     if (playerState.isAttacking && !playerState.attackHitChecked && playerState.attackTimer > 0.5) {

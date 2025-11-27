@@ -1,6 +1,6 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
 import { gameState } from '../core/GameState.js';
-import { player, playerState } from '../entities/Player.js';
+import { player, playerState, getLookDirection } from '../entities/Player.js';
 import { trees, createExplosion, spawnDrop } from '../world/Environment.js';
 import { fields, placeBuilding } from './Building.js';
 import { ITEM_DB } from '../data/Items.js';
@@ -51,14 +51,25 @@ export function checkAttackHit() {
     const heldItem = slotItem ? ITEM_DB[slotItem.id] : null;
     if (!heldItem || heldItem.type !== 'weapon') return;
 
-    let target = null, minD = 5.0; // Increased Weapon range from 3.0
+    // 캐릭터가 바라보는 정면 방향
+    const lookDir = getLookDirection();
+    
+    // 공격 범위 설정
+    const attackRange = heldItem.range || 5.0; // 무기별 공격 범위
+    const attackAngle = 0.5; // cos(60°) ≈ 0.5 → 전방 120도 범위
+
+    let target = null;
+    let minD = attackRange;
+
     trees.forEach(t => {
         const d = player.position.distanceTo(t.position);
         if (d < minD) {
-            // Check angle (in front of player)
+            // 캐릭터 정면 방향 기준으로 각도 체크
             const toTree = t.position.clone().sub(player.position).normalize();
-            const dot = playerState.forward.dot(toTree);
-            if (dot > 0.2) { // Increased angle (roughly 150 degrees cone, dot > 0.2)
+            const dot = lookDir.dot(toTree);
+            
+            // 정면 방향 기준 일정 각도 내에 있는지 확인
+            if (dot > attackAngle) {
                 minD = d;
                 target = { type: 'tree', obj: t };
             }
