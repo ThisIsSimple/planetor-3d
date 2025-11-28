@@ -40,19 +40,20 @@ export function spawnCrashedShip(playerStartPos) {
     const shipUp = shipPos.clone().normalize();
     alignToSurface(ship, shipUp);
     
-    // 불시착 느낌을 위해 약간 기울임
-    ship.rotation.x += 0.15;
-    ship.rotation.y += 0.1;
+    // 불시착 느낌을 위해 약간 기울임 (quaternion 기반)
+    const tiltX = BABYLON.Quaternion.RotationAxis(new BABYLON.Vector3(1, 0, 0), 0.15);
+    const tiltY = BABYLON.Quaternion.RotationAxis(new BABYLON.Vector3(0, 1, 0), 0.1);
+    ship.rotationQuaternion = ship.rotationQuaternion.multiply(tiltX).multiply(tiltY);
     
-    // === 우주선 메인 바디 (캡슐) - lying on surface ===
+    // === 우주선 메인 바디 (캡슐) - standing upright on Y-axis ===
     const body = BABYLON.MeshBuilder.CreateCapsule("shipBody", {
         radius: 1.8,
-        height: 7.6, // 4 + 2*1.8
+        height: 7.6,
         tessellation: 16
     }, scene);
     body.parent = ship;
-    body.rotation.z = Math.PI / 2; // Lay down on surface
-    body.position.y = 2;
+    // No rotation - capsule stands upright along Y-axis
+    body.position.y = 3.8; // Half of height (7.6/2) so bottom touches ground
     
     const bodyMat = new BABYLON.StandardMaterial("shipBodyMat", scene);
     bodyMat.diffuseColor = new BABYLON.Color3(0.44, 0.50, 0.56); // Slate gray
@@ -61,27 +62,27 @@ export function spawnCrashedShip(playerStartPos) {
     body.material = bodyMat;
     addShadowCaster(body);
     
-    // === 조종석 (유리 돔) ===
+    // === 조종석 (유리 돔) - on top ===
     const cockpit = BABYLON.MeshBuilder.CreateSphere("cockpit", {
         diameter: 2.4,
         slice: 0.5,
         segments: 16
     }, scene);
     cockpit.parent = ship;
-    cockpit.position.set(0, 2.8, -1.5);
-    cockpit.rotation.z = Math.PI / 6;
+    cockpit.position.set(0, 7.0, 0.8); // Top of ship, slightly forward
+    cockpit.rotation.x = Math.PI / 6; // Tilt forward
     
     const cockpitMat = new BABYLON.StandardMaterial("cockpitMat", scene);
     cockpitMat.diffuseColor = new BABYLON.Color3(0.53, 0.81, 0.92); // Sky blue
     cockpitMat.alpha = 0.6;
     cockpit.material = cockpitMat;
     
-    // === 날개 (왼쪽) ===
+    // === 날개 (왼쪽) - middle height ===
     const leftWing = BABYLON.MeshBuilder.CreateBox("leftWing", {
         width: 4, height: 0.2, depth: 1.5
     }, scene);
     leftWing.parent = ship;
-    leftWing.position.set(-2.5, 2, 0);
+    leftWing.position.set(-2.5, 4, 0);
     leftWing.rotation.z = 0.1;
     
     const wingMat = new BABYLON.StandardMaterial("wingMat", scene);
@@ -95,13 +96,13 @@ export function spawnCrashedShip(playerStartPos) {
         width: 4, height: 0.2, depth: 1.5
     }, scene);
     rightWing.parent = ship;
-    rightWing.position.set(2.5, 2, 0);
-    rightWing.rotation.z = -0.3;
+    rightWing.position.set(2.5, 4, 0);
+    rightWing.rotation.z = -0.3; // Damaged, drooping
     rightWing.rotation.y = 0.2;
     rightWing.material = wingMat;
     addShadowCaster(rightWing);
     
-    // === 추진기 (뒤쪽) ===
+    // === 추진기 (아래쪽) - pointing down ===
     const engineMat = new BABYLON.StandardMaterial("engineMat", scene);
     engineMat.diffuseColor = new BABYLON.Color3(0.18, 0.18, 0.18);
     engineMat.metallic = 0.9;
@@ -110,21 +111,21 @@ export function spawnCrashedShip(playerStartPos) {
         diameterTop: 1.2, diameterBottom: 1.6, height: 1.5, tessellation: 8
     }, scene);
     engine1.parent = ship;
-    engine1.rotation.z = Math.PI / 2;
-    engine1.position.set(-0.8, 1.8, 2.8);
+    // No rotation needed - cylinder already points along Y-axis
+    engine1.position.set(-0.8, 0.5, 0);
     engine1.material = engineMat;
     
     const engine2 = engine1.clone("engine2");
     engine2.parent = ship;
-    engine2.position.set(0.8, 1.8, 2.8);
+    engine2.position.set(0.8, 0.5, 0);
     
     // === 손상 표시 - 그을음 자국 ===
     const scorch = BABYLON.MeshBuilder.CreateDisc("scorch", {
-        radius: 1.5, tessellation: 16
+        radius: 1.2, tessellation: 16
     }, scene);
     scorch.parent = ship;
-    scorch.position.set(1.5, 3.2, 0.5);
-    scorch.rotation.x = Math.PI / 2;
+    scorch.position.set(1.6, 5, 0.5);
+    scorch.rotation.y = Math.PI / 2; // Face outward on ship side
     
     const scorchMat = new BABYLON.StandardMaterial("scorchMat", scene);
     scorchMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.1);
@@ -133,7 +134,7 @@ export function spawnCrashedShip(playerStartPos) {
     
     // === 연기 효과용 데이터 ===
     ship.metadata = {
-        smokePosition: new BABYLON.Vector3(0.8, 2.5, 2.5),
+        smokePosition: new BABYLON.Vector3(1.0, 5.5, 0.5),
         smokeTimer: 0
     };
     
@@ -144,20 +145,22 @@ export function spawnCrashedShip(playerStartPos) {
     const legMat = new BABYLON.StandardMaterial("legMat", scene);
     legMat.diffuseColor = new BABYLON.Color3(0.33, 0.33, 0.33);
     
-    const createLeg = (name, pos, rotZ) => {
+    const createLeg = (name, xPos, zPos, rotX, rotZ) => {
         const leg = BABYLON.MeshBuilder.CreateCylinder(name, {
-            diameterTop: 0.2, diameterBottom: 0.3, height: 1.5, tessellation: 6
+            diameterTop: 0.2, diameterBottom: 0.4, height: 2.0, tessellation: 6
         }, scene);
         leg.parent = ship;
-        leg.position.copyFrom(pos);
+        leg.position.set(xPos, 0.3, zPos);
+        leg.rotation.x = rotX;
         leg.rotation.z = rotZ;
         leg.material = legMat;
         return leg;
     };
     
-    createLeg("leg1", new BABYLON.Vector3(-1.2, 0.5, -1), -0.3);
-    createLeg("leg2", new BABYLON.Vector3(1.2, 0.5, -1), -0.3);
-    createLeg("leg3", new BABYLON.Vector3(0, 0.5, 1.5), 0.3);
+    // Three landing legs spread out
+    createLeg("leg1", -1.5, -1.0, -0.3, -0.4);
+    createLeg("leg2", 1.5, -1.0, -0.3, 0.4);
+    createLeg("leg3", 0, 1.5, 0.4, 0);
     
     crashedShip = ship;
     return ship;

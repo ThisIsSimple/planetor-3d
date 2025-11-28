@@ -99,7 +99,7 @@ export function createPlayer() {
         width: 0.5, height: 0.5, depth: 0.5
     }, scene);
     hand.parent = player;
-    hand.position.set(-1.2, 0, 0.5);
+    hand.position.set(1.2, 0, 0.5);
     hand.material = playerMat;
     playerState.hand = hand;
 
