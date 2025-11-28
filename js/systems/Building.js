@@ -165,13 +165,24 @@ export function updatePreviewTransform() {
     
     // Align to surface - Y axis becomes surface normal
     const up = spawnPos.clone().normalize();
-    const forward = cameraState.forward.clone();
+    
+    // Project forward onto surface plane (remove up component)
+    let forward = cameraState.forward.clone();
+    const upComponent = BABYLON.Vector3.Dot(forward, up);
+    forward = forward.subtract(up.scale(upComponent));
+    if (forward.lengthSquared() < 0.001) {
+        // forward was parallel to up, use fallback
+        forward = new BABYLON.Vector3(1, 0, 0);
+        const upComp2 = BABYLON.Vector3.Dot(forward, up);
+        forward = forward.subtract(up.scale(upComp2));
+    }
+    forward.normalize();
     
     // Create orthonormal basis for left-handed system
     // X = Y × Z (up × forward), Z = X × Y (xAxis × up)
     let xAxis = BABYLON.Vector3.Cross(up, forward);
     if (xAxis.lengthSquared() < 0.001) {
-        xAxis = BABYLON.Vector3.Cross(up, new BABYLON.Vector3(1, 0, 0));
+        xAxis = BABYLON.Vector3.Cross(up, new BABYLON.Vector3(0, 0, 1));
     }
     xAxis.normalize();
     const zAxis = BABYLON.Vector3.Cross(xAxis, up).normalize();
