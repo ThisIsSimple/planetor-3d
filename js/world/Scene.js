@@ -1,42 +1,68 @@
-import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
-
-export let scene, renderer, sunPivot;
+// Babylon.js Scene Setup
+export let scene, engine, canvas, sunPivot, sunLight;
 
 export function initScene() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
-    scene.fog = new THREE.Fog(0x1a1a2e, 60, 180);
+    canvas = document.getElementById('renderCanvas');
+    engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+    scene = new BABYLON.Scene(engine);
+    
+    // Background color
+    scene.clearColor = new BABYLON.Color4(0.102, 0.102, 0.180, 1); // #1a1a2e
+    
+    // Fog
+    scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+    scene.fogColor = new BABYLON.Color3(0.102, 0.102, 0.180);
+    scene.fogStart = 60;
+    scene.fogEnd = 180;
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    document.body.appendChild(renderer.domElement);
+    // Ambient light (Hemispheric in Babylon.js)
+    const ambientLight = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), scene);
+    ambientLight.intensity = 0.3;
+    ambientLight.diffuse = new BABYLON.Color3(1, 1, 1);
+    ambientLight.groundColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-    scene.add(ambientLight);
+    // Sun pivot (TransformNode to rotate the sun around)
+    sunPivot = new BABYLON.TransformNode("sunPivot", scene);
 
-    sunPivot = new THREE.Group();
-    scene.add(sunPivot);
+    // Directional light (Sun)
+    sunLight = new BABYLON.DirectionalLight("sunLight", new BABYLON.Vector3(-1, 0, 0), scene);
+    sunLight.position = new BABYLON.Vector3(120, 0, 0);
+    sunLight.intensity = 0.6;
+    sunLight.parent = sunPivot;
+    
+    // Shadow generator
+    const shadowGenerator = new BABYLON.ShadowGenerator(2048, sunLight);
+    shadowGenerator.useBlurExponentialShadowMap = true;
+    shadowGenerator.blurKernel = 32;
+    scene.shadowGenerator = shadowGenerator;
 
-    const sunLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    sunLight.position.set(120, 0, 0);
-    sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.camera.left = -100;
-    sunLight.shadow.camera.right = 100;
-    sunLight.shadow.camera.top = 100;
-    sunLight.shadow.camera.bottom = -100;
-    sunPivot.add(sunLight);
+    // Sun mesh (visual representation)
+    const sunMesh = BABYLON.MeshBuilder.CreateSphere("sunMesh", { diameter: 16, segments: 16 }, scene);
+    sunMesh.position = new BABYLON.Vector3(120, 0, 0);
+    const sunMat = new BABYLON.StandardMaterial("sunMat", scene);
+    sunMat.emissiveColor = new BABYLON.Color3(1, 0.867, 0.667); // #ffddaa
+    sunMat.disableLighting = true;
+    sunMesh.material = sunMat;
+    sunMesh.parent = sunPivot;
 
-    const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(8, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffddaa }));
-    sunMesh.position.set(120, 0, 0);
-    sunPivot.add(sunMesh);
+    // Point light at sun position for additional glow
+    const sunPointLight = new BABYLON.PointLight("sunPointLight", new BABYLON.Vector3(120, 0, 0), scene);
+    sunPointLight.diffuse = new BABYLON.Color3(1, 0.867, 0.667);
+    sunPointLight.intensity = 0.8;
+    sunPointLight.range = 250;
+    sunPointLight.parent = sunPivot;
 
-    const sunPt = new THREE.PointLight(0xffddaa, 0.8, 250);
-    sunPt.position.set(120, 0, 0);
-    sunPivot.add(sunPt);
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        engine.resize();
+    });
 
-    return { scene, renderer, sunPivot };
+    return { scene, engine, sunPivot };
+}
+
+// Helper function to add mesh to shadow caster
+export function addShadowCaster(mesh) {
+    if (scene.shadowGenerator) {
+        scene.shadowGenerator.addShadowCaster(mesh);
+    }
 }

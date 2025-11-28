@@ -1,12 +1,24 @@
-import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
+// Babylon.js Camera Setup
+import { scene } from '../world/Scene.js';
 
 export let camera;
 export const cameraState = {
-    forward: new THREE.Vector3(0, 0, 1),
+    forward: null, // Will be initialized as BABYLON.Vector3
     pitch: 0.95
 };
 
 export function initCamera() {
-    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // Create a FreeCamera for manual control
+    camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 50, -50), scene);
+    camera.fov = 0.87; // ~50 degrees (Babylon uses radians)
+    camera.minZ = 0.1;
+    camera.maxZ = 1000;
+    
+    // Disable default camera controls (we handle input manually)
+    camera.inputs.clear();
+    
+    // Initialize camera state forward vector
+    cameraState.forward = new BABYLON.Vector3(0, 0, 1);
+    
     return camera;
 }

@@ -1,11 +1,11 @@
-import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
+// Babylon.js Planet Class
 import { scene } from './Scene.js';
 
 export class Planet {
     constructor(params = {}) {
         this.name = params.name || "Unknown Planet";
         this.description = params.description || "No description available.";
-        this.position = params.position || new THREE.Vector3(0, 0, 0);
+        this.position = params.position || new BABYLON.Vector3(0, 0, 0);
         this.size = params.size || 80; // Diameter
         this.gravity = params.gravity || 0.02; // Game units per frame
 
@@ -25,16 +25,24 @@ export class Planet {
     }
 
     init() {
-        const geometry = new THREE.SphereGeometry(this.radius, 64, 64);
-        const material = new THREE.MeshStandardMaterial({
-            color: 0x4ade80,
-            roughness: 0.9,
-            metalness: 0.1
-        });
-        this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.position.copy(this.position);
-        this.mesh.receiveShadow = true;
-        scene.add(this.mesh);
+        // Create sphere mesh
+        this.mesh = BABYLON.MeshBuilder.CreateSphere("planet", {
+            diameter: this.size,
+            segments: 64
+        }, scene);
+        
+        // Position the planet
+        this.mesh.position.copyFrom(this.position);
+        
+        // Create material
+        const material = new BABYLON.StandardMaterial("planetMat", scene);
+        material.diffuseColor = new BABYLON.Color3(0.290, 0.855, 0.502); // #4ade80
+        material.roughness = 0.9;
+        material.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+        this.mesh.material = material;
+        
+        // Enable shadow receiving
+        this.mesh.receiveShadows = true;
     }
 
     /**

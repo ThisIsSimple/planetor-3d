@@ -1,7 +1,7 @@
-import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
+// Babylon.js Building System
 import { gameState } from '../core/GameState.js';
 import { BUILDING_DB } from '../data/Buildings.js';
-import { scene } from '../world/Scene.js';
+import { scene, addShadowCaster } from '../world/Scene.js';
 import { playerState } from '../entities/Player.js';
 import { cameraState } from '../core/Camera.js';
 import { showMessage } from '../ui/UIManager.js';
@@ -50,77 +50,184 @@ export function refreshBuildList() {
 }
 
 function getBuildingGeometry(id) {
-    const group = new THREE.Group();
+    const group = new BABYLON.TransformNode("building_" + id, scene);
     const data = BUILDING_DB[id];
+    
     if (data.cat === 'housing') {
-        const body = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 3), new THREE.MeshStandardMaterial({ color: 0xf5f5dc }));
-        body.position.z = 1.5; body.castShadow = true; group.add(body);
-        const roof = new THREE.Mesh(new THREE.ConeGeometry(3.5, 2.5, 4), new THREE.MeshStandardMaterial({ color: 0xcd5c5c }));
-        roof.rotation.x = Math.PI / 2; roof.rotation.y = Math.PI / 4; roof.position.z = 4.25; group.add(roof);
+        // House body - Y axis is surface normal
+        const body = BABYLON.MeshBuilder.CreateBox("houseBody", {
+            width: 4, height: 3, depth: 4
+        }, scene);
+        body.parent = group;
+        body.position.y = 1.5;
+        
+        const bodyMat = new BABYLON.StandardMaterial("houseBodyMat", scene);
+        bodyMat.diffuseColor = new BABYLON.Color3(0.96, 0.96, 0.86); // Beige
+        body.material = bodyMat;
+        addShadowCaster(body);
+        
+        // Roof (pyramid pointing up along Y axis)
+        const roof = BABYLON.MeshBuilder.CreateCylinder("houseRoof", {
+            diameterTop: 0,
+            diameterBottom: 7, // sqrt(2) * 4 ≈ 7 for 4x4 base
+            height: 2.5,
+            tessellation: 4
+        }, scene);
+        roof.parent = group;
+        roof.rotation.y = Math.PI / 4; // Rotate to align with square base
+        roof.position.y = 4.25;
+        
+        const roofMat = new BABYLON.StandardMaterial("houseRoofMat", scene);
+        roofMat.diffuseColor = new BABYLON.Color3(0.804, 0.361, 0.361); // Indian red
+        roof.material = roofMat;
+        
     } else if (data.cat === 'deco') {
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1.5), new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
-        trunk.rotation.x = Math.PI / 2; trunk.position.z = 0.75; trunk.castShadow = true; group.add(trunk);
-        const leaves = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 8), new THREE.MeshStandardMaterial({ color: 0x006400 }));
-        leaves.position.z = 2.0; leaves.castShadow = true; group.add(leaves);
+        // Decorative tree - trunk (Y axis is up)
+        const trunk = BABYLON.MeshBuilder.CreateCylinder("decoTrunk", {
+            diameterTop: 0.4,
+            diameterBottom: 0.6,
+            height: 1.5,
+            tessellation: 8
+        }, scene);
+        trunk.parent = group;
+        trunk.position.y = 0.75;
+        
+        const trunkMat = new BABYLON.StandardMaterial("decoTrunkMat", scene);
+        trunkMat.diffuseColor = new BABYLON.Color3(0.545, 0.271, 0.075);
+        trunk.material = trunkMat;
+        addShadowCaster(trunk);
+        
+        // Leaves (sphere)
+        const leaves = BABYLON.MeshBuilder.CreateSphere("decoLeaves", {
+            diameter: 2.4,
+            segments: 8
+        }, scene);
+        leaves.parent = group;
+        leaves.position.y = 2.0;
+        
+        const leavesMat = new BABYLON.StandardMaterial("decoLeavesMat", scene);
+        leavesMat.diffuseColor = new BABYLON.Color3(0, 0.392, 0); // Dark green
+        leaves.material = leavesMat;
+        addShadowCaster(leaves);
+        
     } else if (data.cat === 'farming') {
-        const soil = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 0.5), new THREE.MeshStandardMaterial({ color: 0x5d4037 }));
-        soil.position.z = 0.25; soil.receiveShadow = true; group.add(soil);
+        // Farm field (soil) - flat on surface
+        const soil = BABYLON.MeshBuilder.CreateBox("farmSoil", {
+            width: 3, height: 0.5, depth: 3
+        }, scene);
+        soil.parent = group;
+        soil.position.y = 0.25;
+        soil.receiveShadows = true;
+        
+        const soilMat = new BABYLON.StandardMaterial("farmSoilMat", scene);
+        soilMat.diffuseColor = new BABYLON.Color3(0.365, 0.251, 0.216); // Brown
+        soil.material = soilMat;
     }
-    group.userData.radius = data.radius; group.userData.buildId = id;
+    
+    group.metadata = { radius: data.radius, buildId: id };
     return group;
 }
 
 export function updatePreviewMesh() {
     removePreviewMesh();
     const ghostGroup = getBuildingGeometry(gameState.buildId);
-    const redMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.4, wireframe: true });
-    ghostGroup.traverse((child) => { if (child.isMesh) child.material = redMat; });
+    
+    // Apply wireframe red material to all meshes
+    const redMat = new BABYLON.StandardMaterial("previewMat", scene);
+    redMat.diffuseColor = new BABYLON.Color3(1, 0, 0);
+    redMat.alpha = 0.4;
+    redMat.wireframe = true;
+    
+    ghostGroup.getChildMeshes().forEach(mesh => {
+        mesh.material = redMat;
+    });
+    
     gameState.previewMesh = ghostGroup;
-    scene.add(ghostGroup);
 }
 
 export function removePreviewMesh() {
     if (gameState.previewMesh) {
-        scene.remove(gameState.previewMesh);
+        gameState.previewMesh.dispose();
         gameState.previewMesh = null;
     }
 }
 
 export function updatePreviewTransform() {
     if (gameState.mode !== 'build' || !gameState.previewMesh) return;
-    const dist = 4; // 플레이어와 더 가까운 위치에 건설
-    const spawnPos = playerState.position.clone()
-        .add(cameraState.forward.clone().multiplyScalar(dist))
-        .normalize().multiplyScalar(gameState.planet.radius);
-    gameState.previewMesh.position.copy(spawnPos);
+    
+    const dist = 4;
+    const spawnPos = playerState.position
+        .add(cameraState.forward.scale(dist))
+        .normalize()
+        .scale(gameState.planet.radius);
+    
+    gameState.previewMesh.position.copyFrom(spawnPos);
+    
+    // Align to surface - Y axis becomes surface normal
     const up = spawnPos.clone().normalize();
     const forward = cameraState.forward.clone();
-    const xAxis = new THREE.Vector3().crossVectors(forward, up).normalize();
-    const yAxis = new THREE.Vector3().crossVectors(up, xAxis).normalize();
-    const zAxis = up.clone();
-    const m = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
-    gameState.previewMesh.quaternion.setFromRotationMatrix(m);
-    gameState.previewMesh.rotateZ(gameState.buildRotation);
+    
+    // Create orthonormal basis for left-handed system
+    // X = Y × Z (up × forward), Z = X × Y (xAxis × up)
+    let xAxis = BABYLON.Vector3.Cross(up, forward);
+    if (xAxis.lengthSquared() < 0.001) {
+        xAxis = BABYLON.Vector3.Cross(up, new BABYLON.Vector3(1, 0, 0));
+    }
+    xAxis.normalize();
+    const zAxis = BABYLON.Vector3.Cross(xAxis, up).normalize();
+    
+    // Babylon.js column-major matrix
+    const rotMatrix = BABYLON.Matrix.FromValues(
+        xAxis.x, xAxis.y, xAxis.z, 0,
+        up.x, up.y, up.z, 0,
+        zAxis.x, zAxis.y, zAxis.z, 0,
+        0, 0, 0, 1
+    );
+    
+    gameState.previewMesh.rotationQuaternion = BABYLON.Quaternion.FromRotationMatrix(rotMatrix);
+    
+    // Apply build rotation
+    const rotQuat = BABYLON.Quaternion.RotationAxis(up, gameState.buildRotation);
+    gameState.previewMesh.rotationQuaternion = gameState.previewMesh.rotationQuaternion.multiply(rotQuat);
 }
 
 export function placeBuilding() {
     const data = BUILDING_DB[gameState.buildId];
     const woodCount = countItem('wood');
     const cost = data.cost.wood || 0;
-    if (woodCount < cost) { showMessage(`나무가 부족합니다 (${woodCount}/${cost})`, "#ff6b6b"); return; }
+    if (woodCount < cost) { 
+        showMessage(`나무가 부족합니다 (${woodCount}/${cost})`, "#ff6b6b"); 
+        return; 
+    }
+    
     let tooClose = false;
     const pos = gameState.previewMesh.position;
     buildings.forEach(b => {
-        if (b.position.distanceTo(pos) < (data.radius + (b.userData.radius || 2.0))) tooClose = true;
+        const bRadius = (b.metadata && b.metadata.radius) ? b.metadata.radius : 2.0;
+        if (BABYLON.Vector3.Distance(b.position, pos) < (data.radius + bRadius)) {
+            tooClose = true;
+        }
     });
-    if (tooClose) { showMessage("공간이 부족합니다.", "#ff6b6b"); return; }
+    
+    if (tooClose) { 
+        showMessage("공간이 부족합니다.", "#ff6b6b"); 
+        return; 
+    }
+    
     consumeItem('wood', cost);
+    
     const finalGroup = getBuildingGeometry(gameState.buildId);
-    finalGroup.position.copy(gameState.previewMesh.position);
-    finalGroup.quaternion.copy(gameState.previewMesh.quaternion);
-    scene.add(finalGroup);
+    finalGroup.position.copyFrom(gameState.previewMesh.position);
+    if (gameState.previewMesh.rotationQuaternion) {
+        finalGroup.rotationQuaternion = gameState.previewMesh.rotationQuaternion.clone();
+    }
+    
     buildings.push(finalGroup);
-    if (data.cat === 'farming') fields.push({ mesh: finalGroup, crop: null });
+    
+    if (data.cat === 'farming') {
+        fields.push({ mesh: finalGroup, crop: null });
+    }
+    
     createExplosion(finalGroup.position, 0xffd700, 15);
     showMessage(`${data.name} 건설 완료!`, "#ffd700");
 }

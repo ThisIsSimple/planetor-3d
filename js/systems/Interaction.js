@@ -1,4 +1,4 @@
-import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
+// Babylon.js Interaction System
 import { gameState } from '../core/GameState.js';
 import { player, playerState, getLookDirection } from '../entities/Player.js';
 import { trees, createExplosion, spawnDrop } from '../world/Environment.js';
@@ -6,7 +6,7 @@ import { fields, placeBuilding } from './Building.js';
 import { ITEM_DB } from '../data/Items.js';
 import { showMessage } from '../ui/UIManager.js';
 import { consumeItem } from './Inventory.js';
-import { scene } from '../world/Scene.js';
+import { scene, addShadowCaster } from '../world/Scene.js';
 
 export function handleInteraction() {
     if (gameState.mode === 'build') {
@@ -20,7 +20,7 @@ export function handleInteraction() {
 
     // Prioritize fields for interaction
     fields.forEach(f => {
-        const d = player.position.distanceTo(f.mesh.position);
+        const d = BABYLON.Vector3.Distance(player.position, f.mesh.position);
         if (d < 4.0 && d < minD) { minD = d; target = { type: 'field', obj: f }; }
     });
 
@@ -55,20 +55,19 @@ export function checkAttackHit() {
     const lookDir = getLookDirection();
     
     // 공격 범위 설정
-    const attackRange = heldItem.range || 5.0; // 무기별 공격 범위
+    const attackRange = heldItem.range || 5.0;
     const attackAngle = 0.5; // cos(60°) ≈ 0.5 → 전방 120도 범위
 
     let target = null;
     let minD = attackRange;
 
     trees.forEach(t => {
-        const d = player.position.distanceTo(t.position);
+        const d = BABYLON.Vector3.Distance(player.position, t.position);
         if (d < minD) {
             // 캐릭터 정면 방향 기준으로 각도 체크
-            const toTree = t.position.clone().sub(player.position).normalize();
-            const dot = lookDir.dot(toTree);
+            const toTree = t.position.subtract(player.position).normalize();
+            const dot = BABYLON.Vector3.Dot(lookDir, toTree);
             
-            // 정면 방향 기준 일정 각도 내에 있는지 확인
             if (dot > attackAngle) {
                 minD = d;
                 target = { type: 'tree', obj: t };
@@ -84,17 +83,18 @@ export function checkAttackHit() {
 }
 
 function damageTree(treeObj, damage) {
-    if (!treeObj.userData.health) treeObj.userData.health = 100; // Fallback
-    treeObj.userData.health -= damage;
+    if (!treeObj.metadata.health) treeObj.metadata.health = 100;
+    treeObj.metadata.health -= damage;
 
     // Visual feedback
-    createExplosion(treeObj.position.clone().add(new THREE.Vector3(0, 2, 0)), 0x8b4513, 3);
+    const explosionPos = treeObj.position.add(new BABYLON.Vector3(0, 2, 0));
+    createExplosion(explosionPos, 0x8b4513, 3);
 
     // Shake effect (simple)
     treeObj.rotation.z += 0.1;
     setTimeout(() => { treeObj.rotation.z -= 0.1; }, 100);
 
-    if (treeObj.userData.health <= 0) {
+    if (treeObj.metadata.health <= 0) {
         chopTree(treeObj);
     }
 }
@@ -102,8 +102,8 @@ function damageTree(treeObj, damage) {
 function chopTree(treeObj) {
     const idx = trees.indexOf(treeObj);
     if (idx > -1) {
-        if (treeObj.userData.healthBar) treeObj.userData.healthBar.dispose();
-        scene.remove(treeObj);
+        if (treeObj.metadata.healthBar) treeObj.metadata.healthBar.dispose();
+        treeObj.dispose();
         trees.splice(idx, 1);
         createExplosion(treeObj.position, 0x8b4513, 8);
         spawnDrop(treeObj.position, 'wood');
@@ -113,13 +113,26 @@ function chopTree(treeObj) {
 }
 
 function plantSeed(fieldObj, seedId) {
-    const cropGroup = new THREE.Group();
-    cropGroup.position.copy(fieldObj.mesh.position);
-    cropGroup.quaternion.copy(fieldObj.mesh.quaternion);
-    const sprout = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
-    sprout.rotation.x = Math.PI / 2; sprout.position.z = 0.5;
-    cropGroup.add(sprout);
-    scene.add(cropGroup);
+    const cropGroup = new BABYLON.TransformNode("crop", scene);
+    cropGroup.position.copyFrom(fieldObj.mesh.position);
+    if (fieldObj.mesh.rotationQuaternion) {
+        cropGroup.rotationQuaternion = fieldObj.mesh.rotationQuaternion.clone();
+    }
+    
+    // Sprout - Y axis is surface normal
+    const sprout = BABYLON.MeshBuilder.CreateCylinder("sprout", {
+        diameterTop: 0.2,
+        diameterBottom: 0.2,
+        height: 0.5,
+        tessellation: 8
+    }, scene);
+    sprout.parent = cropGroup;
+    sprout.position.y = 0.5;
+    
+    const sproutMat = new BABYLON.StandardMaterial("sproutMat", scene);
+    sproutMat.diffuseColor = new BABYLON.Color3(0, 1, 0);
+    sprout.material = sproutMat;
+    
     fieldObj.crop = { mesh: cropGroup, type: 'carrot', stage: 0, timer: 0, maxTime: 10 };
     createExplosion(fieldObj.mesh.position, 0x00ff00, 5);
     showMessage("씨앗을 심었습니다.", "#4ade80");
@@ -139,21 +152,58 @@ export function updateCrops(delta) {
 }
 
 function updateCropVisual(crop) {
-    while (crop.mesh.children.length > 0) crop.mesh.remove(crop.mesh.children[0]);
+    // Remove old children
+    crop.mesh.getChildMeshes().forEach(m => m.dispose());
+    
     if (crop.stage === 1) {
-        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.0), new THREE.MeshStandardMaterial({ color: 0x228b22 }));
-        stem.rotation.x = Math.PI / 2; stem.position.z = 0.5; crop.mesh.add(stem);
+        const stem = BABYLON.MeshBuilder.CreateCylinder("stem", {
+            diameterTop: 0.4,
+            diameterBottom: 0.4,
+            height: 1.0,
+            tessellation: 8
+        }, scene);
+        stem.parent = crop.mesh;
+        stem.position.y = 0.5;
+        
+        const stemMat = new BABYLON.StandardMaterial("stemMat", scene);
+        stemMat.diffuseColor = new BABYLON.Color3(0.133, 0.545, 0.133);
+        stem.material = stemMat;
+        
     } else if (crop.stage === 2) {
-        const carrot = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0xff7f00 }));
-        carrot.rotation.x = Math.PI / 2; carrot.position.z = 0.4;
-        const leaves = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.5, 8), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
-        leaves.rotation.x = Math.PI / 2; leaves.position.z = 1.0; crop.mesh.add(carrot); crop.mesh.add(leaves);
+        // Carrot - pointing up
+        const carrot = BABYLON.MeshBuilder.CreateCylinder("carrot", {
+            diameterTop: 0,
+            diameterBottom: 0.6,
+            height: 0.8,
+            tessellation: 8
+        }, scene);
+        carrot.parent = crop.mesh;
+        carrot.position.y = 0.4;
+        
+        const carrotMat = new BABYLON.StandardMaterial("carrotMat", scene);
+        carrotMat.diffuseColor = new BABYLON.Color3(1, 0.5, 0); // Orange
+        carrot.material = carrotMat;
+        
+        // Leaves
+        const leaves = BABYLON.MeshBuilder.CreateCylinder("carrotLeaves", {
+            diameterTop: 0,
+            diameterBottom: 1.0,
+            height: 0.5,
+            tessellation: 8
+        }, scene);
+        leaves.parent = crop.mesh;
+        leaves.position.y = 1.0;
+        
+        const leavesMat = new BABYLON.StandardMaterial("carrotLeavesMat", scene);
+        leavesMat.diffuseColor = new BABYLON.Color3(0, 1, 0);
+        leaves.material = leavesMat;
     }
+    
     createExplosion(crop.mesh.position, 0x00ff00, 3);
 }
 
 function harvestCrop(fieldObj) {
-    scene.remove(fieldObj.crop.mesh);
+    fieldObj.crop.mesh.dispose();
     fieldObj.crop = null;
     spawnDrop(fieldObj.mesh.position, 'carrot');
     createExplosion(fieldObj.mesh.position, 0xff7f00, 8);
@@ -161,7 +211,7 @@ function harvestCrop(fieldObj) {
 }
 
 function removeCrop(fieldObj) {
-    scene.remove(fieldObj.crop.mesh);
+    fieldObj.crop.mesh.dispose();
     fieldObj.crop = null;
     spawnDrop(fieldObj.mesh.position, 'seed_unknown');
     showMessage("작물을 제거했습니다.", "#ccc");
@@ -178,5 +228,7 @@ function eatFood(slotIndex) {
     gameState.hunger = Math.min(100, gameState.hunger + hungerRestore);
     consumeItem(item.id, 1);
     showMessage("냠냠!", "#ffd700");
-    createExplosion(player.position.clone().add(new THREE.Vector3(0, 3, 0)), 0xff7f00, 5);
+    
+    const explosionPos = player.position.add(new BABYLON.Vector3(0, 3, 0));
+    createExplosion(explosionPos, 0xff7f00, 5);
 }

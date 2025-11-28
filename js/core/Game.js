@@ -1,8 +1,8 @@
-import * as THREE from 'https://unpkg.com/three@0.181.0/build/three.module.js';
+// Babylon.js Game Core
 import { gameState } from './GameState.js';
 import { initInput, keys, on, mouse } from './Input.js';
 import { initCamera, camera, cameraState } from './Camera.js';
-import { initScene, scene, renderer, sunPivot } from '../world/Scene.js';
+import { initScene, scene, engine, sunPivot } from '../world/Scene.js';
 import { Planet } from '../world/Planet.js';
 import { createPlayer, updatePlayerMovement, playerState, player, jump, attack, equipWeapon, unequipWeapon } from '../entities/Player.js';
 import { spawnTree, updateParticles, updateDrops, updateEnvironment, spawnCrashedShip } from '../world/Environment.js';
@@ -10,19 +10,21 @@ import { initUI, showMessage, updateInventoryUI, updateControlsGuide, selectHotb
 import { addItem } from '../systems/Inventory.js';
 import { handleInteraction, updateCrops, checkAttackHit } from '../systems/Interaction.js';
 import { refreshBuildList, updatePreviewMesh, updatePreviewTransform, removePreviewMesh, selectCategory, currentBuildList } from '../systems/Building.js';
+import { rotateVectorAroundAxis } from '../utils/MathUtils.js';
 
-let clock;
+let lastTime = 0;
 
 export function init() {
     initScene();
-    clock = new THREE.Clock();
     initCamera();
+    
     gameState.planet = new Planet({
         name: "Terra Nova",
         description: "A lush green planet suitable for life.",
         size: 80,
         gravity: 0.02
     });
+    
     createPlayer();
     
     // 플레이어 시작 위치 근처에 고장난 우주선 배치
@@ -44,7 +46,7 @@ export function init() {
     updatePlanetInfoUI();
 
     addItem('axe', 1);
-    equipWeapon('axe'); // 시작 시 도끼 장착
+    equipWeapon('axe');
 
     document.getElementById('btn-menu-build').onclick = () => toggleMode('build');
     document.getElementById('btn-menu-inv').onclick = () => toggleMode('inventory');
@@ -52,7 +54,9 @@ export function init() {
         handleInteraction();
     };
 
-    animate();
+    // Start the Babylon.js render loop
+    lastTime = performance.now();
+    engine.runRenderLoop(animate);
 }
 
 function setupInputHandlers() {
@@ -123,17 +127,20 @@ function setupInputHandlers() {
 
     on('mousemove', (e) => {
         if (!gameState.isPaused && document.pointerLockElement === document.body) {
-            const rotSpeed = -0.002;
-            cameraState.forward.applyAxisAngle(playerState.up, e.movementX * rotSpeed).normalize();
+            const rotSpeed = 0.002; // Babylon.js uses left-handed coordinate system
+            
+            // Rotate forward vector around up axis
+            cameraState.forward = rotateVectorAroundAxis(cameraState.forward, playerState.up, e.movementX * rotSpeed);
+            cameraState.forward.normalize();
 
-            cameraState.pitch -= e.movementY * rotSpeed;
+            cameraState.pitch += e.movementY * rotSpeed;
             cameraState.pitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraState.pitch));
         }
     });
 
     on('mousedown', (e) => {
         if (!gameState.isPaused && document.pointerLockElement === document.body) {
-            if (e.button === 0) attack(); // Left click
+            if (e.button === 0) attack();
         }
     });
 
@@ -147,6 +154,7 @@ function onPointerLockChange() {
         document.getElementById('blocker').style.display = 'none';
     } else {
         if (gameState.mode === 'inventory') {
+            // Do nothing
         } else if (gameState.justExitedBuild) {
             gameState.isPaused = true;
             gameState.justExitedBuild = false;
@@ -218,18 +226,18 @@ function updatePlanetInfoUI() {
 }
 
 function animate() {
-    requestAnimationFrame(animate);
+    const now = performance.now();
+    const delta = (now - lastTime) / 1000; // Convert to seconds
+    lastTime = now;
 
     if (gameState.isPaused) {
-        renderer.render(scene, camera);
+        scene.render();
         return;
     }
 
-    const delta = clock.getDelta();
-    
     // 우주력 업데이트
     gameState.cosmicTime += delta;
-    gameState.totalTime = gameState.cosmicTime; // 기존 호환성 유지
+    gameState.totalTime = gameState.cosmicTime;
     const cosmicDay = Math.floor(gameState.cosmicTime / gameState.cosmicDayDuration) + 1;
     if (cosmicDay !== gameState.cosmicDay) {
         gameState.cosmicDay = cosmicDay;
@@ -285,5 +293,5 @@ function animate() {
 
     document.getElementById('action-progress-container').style.display = 'none';
 
-    renderer.render(scene, camera);
+    scene.render();
 }
