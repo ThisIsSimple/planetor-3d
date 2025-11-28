@@ -11,6 +11,7 @@ import { addItem } from '../systems/Inventory.js';
 import { handleInteraction, updateCrops, checkAttackHit } from '../systems/Interaction.js';
 import { refreshBuildList, updatePreviewMesh, updatePreviewTransform, removePreviewMesh, selectCategory, currentBuildList } from '../systems/Building.js';
 import { rotateVectorAroundAxis } from '../utils/MathUtils.js';
+import { toggleDebugVisuals, updateDebugVisuals } from '../systems/Debug.js';
 
 let lastTime = 0;
 
@@ -102,6 +103,10 @@ function setupInputHandlers() {
         if (gameState.mode === 'build') {
             if (k === 'r') gameState.buildRotation += 0.1;
             if (k === 'f') gameState.buildRotation -= 0.1;
+        }
+        if (k === 'f3') {
+            e.preventDefault();
+            toggleDebugVisuals();
         }
     });
 
@@ -292,6 +297,9 @@ function animate() {
     updateCrops(delta);
 
     document.getElementById('action-progress-container').style.display = 'none';
+
+    // 디버그 시각화 업데이트
+    updateDebugVisuals();
 
     scene.render();
 }
